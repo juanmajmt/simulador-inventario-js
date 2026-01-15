@@ -1,30 +1,23 @@
 let inventario = []
-
 let proximoId = 1
 
 function cargarInventario() {
   inventario = leerInventarioStorage()
-
-  proximoId = inventario.length
-    ? Math.max(...inventario.map(p => p.id)) + 1
-    : 1
+  proximoId = inventario.length ? Math.max(...inventario.map(p => p.id)) + 1 : 1
 }
 
 function guardarInventario() {
   guardarInventarioStorage(inventario)
 }
 
-function buscarProducto({ id = null, nombre = null }) {
-  if (id !== null) return inventario.find(p => p.id === id) || null
-  if (nombre !== null) {
-    const nombreLower = nombre.toLowerCase()
-    return inventario.find(p => p.nombre.toLowerCase() === nombreLower) || null
-  }
-  return null
+function buscarProductoPorId(id) {
+  return inventario.find(p => p.id === id) || null
 }
 
 function renderInventario() {
   const cuerpo = document.getElementById("inventory-body")
+  if (!cuerpo) return
+
   cuerpo.innerHTML = ""
 
   if (inventario.length === 0) {
@@ -35,7 +28,6 @@ function renderInventario() {
 
   inventario.forEach(prod => {
     const fila = document.createElement("tr")
-
     fila.innerHTML = `
       <td>${prod.id}</td>
       <td>${prod.nombre}</td>
@@ -53,6 +45,11 @@ function renderInventario() {
 }
 
 function actualizarResumen() {
+  const totalUnitsEl = document.getElementById("total-units")
+  const totalValueEl = document.getElementById("total-value")
+  const topProductEl = document.getElementById("top-product")
+  if (!totalUnitsEl || !totalValueEl || !topProductEl) return
+
   let unidades = 0
   let valorTotal = 0
   let mayorStock = inventario[0] || null
@@ -66,11 +63,9 @@ function actualizarResumen() {
     }
   }
 
-  document.getElementById("total-units").textContent = unidades
-  document.getElementById("total-value").textContent = "$ " + valorTotal
-  document.getElementById("top-product").textContent = mayorStock
-    ? mayorStock.nombre + " (" + mayorStock.stock + ")"
-    : "-"
+  totalUnitsEl.textContent = unidades
+  totalValueEl.textContent = "$ " + valorTotal
+  topProductEl.textContent = mayorStock ? mayorStock.nombre + " (" + mayorStock.stock + ")" : "-"
 }
 
 function agregarProducto(nombre, precio, stock) {
@@ -81,7 +76,7 @@ function agregarProducto(nombre, precio, stock) {
 }
 
 function venderProducto(id, cantidad) {
-  const prod = buscarProducto({ id })
+  const prod = buscarProductoPorId(id)
   if (!prod) return
   if (cantidad <= 0) return
   if (cantidad > prod.stock) return
@@ -100,38 +95,64 @@ function eliminarProducto(id) {
   renderInventario()
 }
 
-document.getElementById("product-form").addEventListener("submit", function (e) {
-  e.preventDefault()
+function initInventarioUI() {
+  const form = document.getElementById("product-form")
+  const body = document.getElementById("inventory-body")
+  const resetBtn = document.getElementById("reset-data")
 
-  const nombre = document.getElementById("product-name").value.trim()
-  const precio = Number(document.getElementById("product-price").value)
-  const stock = Number(document.getElementById("product-stock").value)
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault()
 
-  if (!nombre || Number.isNaN(precio) || Number.isNaN(stock)) return
+      const nombreEl = document.getElementById("product-name")
+      const precioEl = document.getElementById("product-price")
+      const stockEl = document.getElementById("product-stock")
 
-  agregarProducto(nombre, precio, stock)
-  e.target.reset()
-})
+      if (!nombreEl || !precioEl || !stockEl) return
 
-document.getElementById("inventory-body").addEventListener("click", function (e) {
-  const boton = e.target
-  const id = Number(boton.dataset.id)
+      const nombre = nombreEl.value.trim()
+      const precio = Number(precioEl.value)
+      const stock = Number(stockEl.value)
 
-  if (boton.dataset.accion === "vender") {
-    venderProducto(id, 1)
+      if (!nombre) return
+      if (!Number.isFinite(precio) || precio < 0) return
+      if (!Number.isFinite(stock) || stock < 0) return
+
+      agregarProducto(nombre, precio, stock)
+      form.reset()
+    })
   }
 
-  if (boton.dataset.accion === "eliminar") {
-    eliminarProducto(id)
-  }
-})
+  if (body) {
+    body.addEventListener("click", function (e) {
+      const boton = e.target.closest("button")
+      if (!boton) return
 
-document.getElementById("reset-data").addEventListener("click", function () {
-  borrarInventarioStorage()
-  inventario = []
-  proximoId = 1
+      const accion = boton.dataset.accion
+      const id = Number(boton.dataset.id)
+      if (!Number.isFinite(id)) return
+
+      if (accion === "vender") {
+        venderProducto(id, 1)
+      }
+
+      if (accion === "eliminar") {
+        eliminarProducto(id)
+      }
+    })
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", function () {
+      borrarInventarioStorage()
+      inventario = []
+      proximoId = 1
+      renderInventario()
+    })
+  }
+
+  cargarInventario()
   renderInventario()
-})
+}
 
-cargarInventario()
-renderInventario()
+document.addEventListener("DOMContentLoaded", initInventarioUI)
